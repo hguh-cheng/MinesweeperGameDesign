@@ -47,7 +47,7 @@ The board should be pseudo-randomly generated in such a way that no guessing is 
 ### Theme
 - **Pastel pixel art**: Nothing should be too overwhelming.
 - Numbers on the board should be in high contrast against their backgrounds.
-- The player should play as this dog.
+- The player should play as this dog. (Customizable characters based on progression through total mines revealed on your account, ith different health/abilities for a fresh game)
 - Classic Minesweeper numbers, flags, and mine sprites should be overlaid on the following tileset.
 (I think it would be really interesting if you didn't know the shape of the map and it was generated in specific shapes to make the figuring out experience more novel)
 - If there is room on the board (where there are no numbers to be obstructed), add trees, water, bridges, and benches randomly as little easter eggs to discover.
@@ -57,3 +57,4 @@ The board should be pseudo-randomly generated in such a way that no guessing is 
 - The Minesweeper board should occupy the majority of the screen.
 - While the game is being played, have a counter in the top left that details how much time has been spent on the current board (in seconds).
 - On the top right, have a counter that says how many mines remain unmarked.
+(This is a very simple and strongly presented game that is easy to understand. Good Job :)
