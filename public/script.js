@@ -20,6 +20,9 @@ const map = Array.from({ length: MAP_ROWS }, () =>
   )
 );
 
+// Array to store placed flags
+const flags = [];
+
 // Player's starting position (in pixels)
 const player = {
   x: 20 * TILE_SIZE,
@@ -34,7 +37,31 @@ const camera = {
 
 // Handle keyboard input
 const keys = {};
-document.addEventListener("keydown", (e) => (keys[e.key] = true));
+document.addEventListener("keydown", (e) => {
+  keys[e.key] = true;
+
+  // Handle flag placement/removal on spacebar press
+  if (e.key === " ") {
+    // Calculate tile position based on player center
+    const playerCenterX = player.x + TILE_SIZE / 2;
+    const playerCenterY = player.y + TILE_SIZE / 2;
+    const tileX = Math.floor(playerCenterX / TILE_SIZE);
+    const tileY = Math.floor(playerCenterY / TILE_SIZE);
+
+    // Find if a flag exists at this position
+    const flagIndex = flags.findIndex(
+      (flag) => flag.x === tileX && flag.y === tileY
+    );
+
+    if (flagIndex === -1) {
+      // No flag exists, add one
+      flags.push({ x: tileX, y: tileY });
+    } else {
+      // Flag exists, remove it
+      flags.splice(flagIndex, 1);
+    }
+  }
+});
 document.addEventListener("keyup", (e) => (keys[e.key] = false));
 
 // Game loop
@@ -80,6 +107,25 @@ function update() {
   );
 }
 
+// Function to draw a flag
+function drawFlag(x, y) {
+  // Flag pole
+  ctx.beginPath();
+  ctx.moveTo(x + TILE_SIZE * 0.7, y + TILE_SIZE * 0.2);
+  ctx.lineTo(x + TILE_SIZE * 0.7, y + TILE_SIZE * 0.8);
+  ctx.strokeStyle = "#4a4a4a";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Flag
+  ctx.beginPath();
+  ctx.moveTo(x + TILE_SIZE * 0.7, y + TILE_SIZE * 0.2);
+  ctx.lineTo(x + TILE_SIZE * 0.3, y + TILE_SIZE * 0.35);
+  ctx.lineTo(x + TILE_SIZE * 0.7, y + TILE_SIZE * 0.5);
+  ctx.fillStyle = "#ff0000";
+  ctx.fill();
+}
+
 // Render the visible map and player
 function render() {
   // Clear canvas
@@ -108,6 +154,22 @@ function render() {
       }
     }
   }
+
+  // Draw flags
+  flags.forEach((flag) => {
+    const screenX = flag.x * TILE_SIZE - camera.x;
+    const screenY = flag.y * TILE_SIZE - camera.y;
+
+    // Only draw flags that are within the viewport
+    if (
+      screenX >= -TILE_SIZE &&
+      screenX <= canvas.width + TILE_SIZE &&
+      screenY >= -TILE_SIZE &&
+      screenY <= canvas.height + TILE_SIZE
+    ) {
+      drawFlag(screenX, screenY);
+    }
+  });
 
   // Draw player
   ctx.fillStyle = "#ff5733";
