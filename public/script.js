@@ -6,6 +6,9 @@ const VIEWPORT_ROWS = 12; // Number of rows visible on the screen
 const VIEWPORT_COLS = 20; // Number of cols visible on the screen
 const PLAYER_SPEED = 4; // Pixels per frame
 const CAMERA_LERP = 0.1; // Camera smoothing factor (0-1)
+const MAX_LIVES = 3;
+let lives = MAX_LIVES;
+let gameOver = false;
 
 // Set up the canvas and context
 const canvas = document.getElementById("game-canvas");
@@ -137,18 +140,27 @@ function ensureSafeFirstReveal(revealX, revealY) {
 // Function to reveal tiles recursively
 function revealTiles(x, y) {
   ensureSafeFirstReveal(x, y);
+
   // Check bounds
   if (x < 0 || x >= MAP_COLS || y < 0 || y >= MAP_ROWS) {
     return;
   }
 
   // Skip if already revealed or has flag
-  if (revealedTiles[y][x] || hasFlag(x, y)) {
+  if (revealedTiles[y][x] || hasFlag(x, y) || gameOver) {
     return;
   }
 
   // Reveal current tile
   revealedTiles[y][x] = true;
+
+  // Lose a life if water tile is revealed
+  if (map[y][x] === "water") {
+    lives--;
+    if (lives <= 0) {
+      gameOver = true;
+    }
+  }
 
   // If it's a land tile with no water neighbors, recursively reveal neighbors
   if (map[y][x] === "land" && countWaterTilesAround(x, y) === 0) {
@@ -195,6 +207,8 @@ function chordTiles(x, y) {
 // Handle keyboard input
 const keys = {};
 document.addEventListener("keydown", (e) => {
+  if (gameOver) return;
+
   keys[e.key] = true;
 
   if (e.key === " ") {
@@ -366,6 +380,48 @@ function render() {
   // Draw player
   ctx.fillStyle = "#ff5733";
   ctx.fillRect(player.x - camera.x, player.y - camera.y, TILE_SIZE, TILE_SIZE);
+
+  // Draw hearts
+  for (let i = 0; i < lives; i++) {
+    ctx.fillStyle = "red";
+    ctx.beginPath();
+    const heartX = canvas.width - 40 * (i + 1);
+    const heartY = 20;
+    ctx.moveTo(heartX, heartY + 10);
+    ctx.bezierCurveTo(
+      heartX,
+      heartY,
+      heartX - 10,
+      heartY,
+      heartX - 20,
+      heartY + 10
+    );
+    ctx.bezierCurveTo(
+      heartX - 30,
+      heartY + 20,
+      heartX - 30,
+      heartY + 40,
+      heartX,
+      heartY + 60
+    );
+    ctx.bezierCurveTo(
+      heartX + 30,
+      heartY + 40,
+      heartX + 30,
+      heartY + 20,
+      heartX + 20,
+      heartY + 10
+    );
+    ctx.fill();
+  }
+
+  // Game over text
+  if (gameOver) {
+    ctx.fillStyle = "red";
+    ctx.font = "48px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("YOU LOSE NERD", canvas.width / 2, canvas.height / 2);
+  }
 }
 
 // Start the game
