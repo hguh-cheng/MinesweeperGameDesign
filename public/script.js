@@ -6,6 +6,9 @@ const VIEWPORT_ROWS = 12; // Number of rows visible on the screen
 const VIEWPORT_COLS = 20; // Number of cols visible on the screen
 const PLAYER_SPEED = 4; // Pixels per frame
 const CAMERA_LERP = 0.1; // Camera smoothing factor (0-1)
+const MAX_LIVES = 3;
+let lives = MAX_LIVES;
+let gameOver = false;
 
 // Set up the canvas and context
 const canvas = document.getElementById("game-canvas");
@@ -64,25 +67,100 @@ function countWaterTilesAround(x, y) {
   return count;
 }
 
+// Function to count flags around a position
+function countFlagsAround(x, y) {
+  return flags.filter(
+    (flag) =>
+      Math.abs(flag.x - x) <= 1 &&
+      Math.abs(flag.y - y) <= 1 &&
+      !(flag.x === x && flag.y === y)
+  ).length;
+}
+
 // Function to check if a flag exists at given coordinates
 function hasFlag(x, y) {
   return flags.some((flag) => flag.x === x && flag.y === y);
 }
 
+// Modify map generation to track first reveal
+let firstReveal = true;
+
+// Function to ensure first reveal is safe
+function ensureSafeFirstReveal(revealX, revealY) {
+  // If first reveal, relocate water tiles to ensure 0 water around reveal tile
+  if (firstReveal) {
+    firstReveal = false;
+
+    // Find and relocate water tiles around the reveal tile
+    const tilesToRelocate = [];
+
+    // Identify water tiles around the reveal area
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const checkX = revealX + dx;
+        const checkY = revealY + dy;
+
+        if (
+          checkX >= 0 &&
+          checkX < MAP_COLS &&
+          checkY >= 0 &&
+          checkY < MAP_ROWS &&
+          map[checkY][checkX] === "water"
+        ) {
+          tilesToRelocate.push({ x: checkX, y: checkY });
+        }
+      }
+    }
+
+    // Remove water tiles from original locations
+    tilesToRelocate.forEach((tile) => {
+      map[tile.y][tile.x] = "land";
+    });
+
+    // Randomly relocate water tiles to other locations
+    tilesToRelocate.forEach(() => {
+      let placed = false;
+      while (!placed) {
+        const newX = Math.floor(Math.random() * MAP_COLS);
+        const newY = Math.floor(Math.random() * MAP_ROWS);
+
+        // Ensure new location is not too close to the reveal tile and is currently land
+        const tooClose =
+          Math.abs(newX - revealX) <= 1 && Math.abs(newY - revealY) <= 1;
+
+        if (!tooClose && map[newY][newX] === "land") {
+          map[newY][newX] = "water";
+          placed = true;
+        }
+      }
+    });
+  }
+}
+
 // Function to reveal tiles recursively
 function revealTiles(x, y) {
+  ensureSafeFirstReveal(x, y);
+
   // Check bounds
   if (x < 0 || x >= MAP_COLS || y < 0 || y >= MAP_ROWS) {
     return;
   }
 
   // Skip if already revealed or has flag
-  if (revealedTiles[y][x] || hasFlag(x, y)) {
+  if (revealedTiles[y][x] || hasFlag(x, y) || gameOver) {
     return;
   }
 
   // Reveal current tile
   revealedTiles[y][x] = true;
+
+  // Lose a life if water tile is revealed
+  if (map[y][x] === "water") {
+    lives--;
+    if (lives <= 0) {
+      gameOver = true;
+    }
+  }
 
   // If it's a land tile with no water neighbors, recursively reveal neighbors
   if (map[y][x] === "land" && countWaterTilesAround(x, y) === 0) {
@@ -96,9 +174,41 @@ function revealTiles(x, y) {
   }
 }
 
+// Function to reveal all surrounding tiles via chording
+function chordTiles(x, y) {
+  const waterCount = countWaterTilesAround(x, y);
+  const flagCount = countFlagsAround(x, y);
+
+  // Only continue if number of flags matches water tile count
+  if (waterCount !== flagCount) return;
+
+  // Reveal surrounding tiles if not flagged
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if (dx === 0 && dy === 0) continue;
+
+      const checkX = x + dx;
+      const checkY = y + dy;
+
+      if (
+        checkX >= 0 &&
+        checkX < MAP_COLS &&
+        checkY >= 0 &&
+        checkY < MAP_ROWS &&
+        !hasFlag(checkX, checkY) &&
+        !revealedTiles[checkY][checkX]
+      ) {
+        revealTiles(checkX, checkY);
+      }
+    }
+  }
+}
+
 // Handle keyboard input
 const keys = {};
 document.addEventListener("keydown", (e) => {
+  if (gameOver) return;
+
   keys[e.key] = true;
 
   if (e.key === " ") {
@@ -108,14 +218,17 @@ document.addEventListener("keydown", (e) => {
     const tileX = Math.floor(playerCenterX / TILE_SIZE);
     const tileY = Math.floor(playerCenterY / TILE_SIZE);
 
-    const flagIndex = flags.findIndex(
-      (flag) => flag.x === tileX && flag.y === tileY
-    );
+    // Prevent flagging revealed tiles
+    if (!revealedTiles[tileY][tileX]) {
+      const flagIndex = flags.findIndex(
+        (flag) => flag.x === tileX && flag.y === tileY
+      );
 
-    if (flagIndex === -1) {
-      flags.push({ x: tileX, y: tileY });
-    } else {
-      flags.splice(flagIndex, 1);
+      if (flagIndex === -1) {
+        flags.push({ x: tileX, y: tileY });
+      } else {
+        flags.splice(flagIndex, 1);
+      }
     }
   } else if (e.key === "Enter") {
     // Handle tile reveal
@@ -126,7 +239,16 @@ document.addEventListener("keydown", (e) => {
 
     // Only reveal if there's no flag
     if (!hasFlag(tileX, tileY)) {
-      revealTiles(tileX, tileY);
+      if (
+        revealedTiles[tileY][tileX] &&
+        countWaterTilesAround(tileX, tileY) > 0
+      ) {
+        // If tile is revealed and has water neighbors, attempt chording
+        chordTiles(tileX, tileY);
+      } else {
+        // Regular tile reveal
+        revealTiles(tileX, tileY);
+      }
     }
   }
 });
@@ -207,11 +329,15 @@ function render() {
         const screenY = row * TILE_SIZE - offsetY;
 
         // Draw base tile
-        ctx.fillStyle = map[mapY][mapX] === "water" ? "#87ceeb" : "#228b22";
+        ctx.fillStyle = "#228b22";
         ctx.fillRect(screenX, screenY, TILE_SIZE, TILE_SIZE);
 
         // If tile is revealed, show additional information
         if (revealedTiles[mapY][mapX]) {
+          // Changed background color for revealed tiles to brown
+          ctx.fillStyle = "#8B4513"; // Saddle Brown
+          ctx.fillRect(screenX, screenY, TILE_SIZE, TILE_SIZE);
+
           if (map[mapY][mapX] === "water") {
             // Show red for water tiles
             ctx.fillStyle = "rgba(255, 0, 0, 0.5)";
@@ -254,6 +380,48 @@ function render() {
   // Draw player
   ctx.fillStyle = "#ff5733";
   ctx.fillRect(player.x - camera.x, player.y - camera.y, TILE_SIZE, TILE_SIZE);
+
+  // Draw hearts
+  for (let i = 0; i < lives; i++) {
+    ctx.fillStyle = "red";
+    ctx.beginPath();
+    const heartX = canvas.width - 40 * (i + 1);
+    const heartY = 20;
+    ctx.moveTo(heartX, heartY + 10);
+    ctx.bezierCurveTo(
+      heartX,
+      heartY,
+      heartX - 10,
+      heartY,
+      heartX - 20,
+      heartY + 10
+    );
+    ctx.bezierCurveTo(
+      heartX - 30,
+      heartY + 20,
+      heartX - 30,
+      heartY + 40,
+      heartX,
+      heartY + 60
+    );
+    ctx.bezierCurveTo(
+      heartX + 30,
+      heartY + 40,
+      heartX + 30,
+      heartY + 20,
+      heartX + 20,
+      heartY + 10
+    );
+    ctx.fill();
+  }
+
+  // Game over text
+  if (gameOver) {
+    ctx.fillStyle = "red";
+    ctx.font = "48px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("YOU LOSE NERD", canvas.width / 2, canvas.height / 2);
+  }
 }
 
 // Start the game
