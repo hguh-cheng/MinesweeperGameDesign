@@ -64,6 +64,16 @@ function countWaterTilesAround(x, y) {
   return count;
 }
 
+// Function to count flags around a position
+function countFlagsAround(x, y) {
+  return flags.filter(
+    (flag) =>
+      Math.abs(flag.x - x) <= 1 &&
+      Math.abs(flag.y - y) <= 1 &&
+      !(flag.x === x && flag.y === y)
+  ).length;
+}
+
 // Function to check if a flag exists at given coordinates
 function hasFlag(x, y) {
   return flags.some((flag) => flag.x === x && flag.y === y);
@@ -91,6 +101,36 @@ function revealTiles(x, y) {
       for (let dx = -1; dx <= 1; dx++) {
         if (dx === 0 && dy === 0) continue;
         revealTiles(x + dx, y + dy);
+      }
+    }
+  }
+}
+
+// Function to reveal all surrounding tiles via chording
+function chordTiles(x, y) {
+  const waterCount = countWaterTilesAround(x, y);
+  const flagCount = countFlagsAround(x, y);
+
+  // Only continue if number of flags matches water tile count
+  if (waterCount !== flagCount) return;
+
+  // Reveal surrounding tiles if not flagged
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if (dx === 0 && dy === 0) continue;
+
+      const checkX = x + dx;
+      const checkY = y + dy;
+
+      if (
+        checkX >= 0 &&
+        checkX < MAP_COLS &&
+        checkY >= 0 &&
+        checkY < MAP_ROWS &&
+        !hasFlag(checkX, checkY) &&
+        !revealedTiles[checkY][checkX]
+      ) {
+        revealTiles(checkX, checkY);
       }
     }
   }
@@ -126,7 +166,16 @@ document.addEventListener("keydown", (e) => {
 
     // Only reveal if there's no flag
     if (!hasFlag(tileX, tileY)) {
-      revealTiles(tileX, tileY);
+      if (
+        revealedTiles[tileY][tileX] &&
+        countWaterTilesAround(tileX, tileY) > 0
+      ) {
+        // If tile is revealed and has water neighbors, attempt chording
+        chordTiles(tileX, tileY);
+      } else {
+        // Regular tile reveal
+        revealTiles(tileX, tileY);
+      }
     }
   }
 });
