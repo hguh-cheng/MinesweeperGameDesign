@@ -79,8 +79,64 @@ function hasFlag(x, y) {
   return flags.some((flag) => flag.x === x && flag.y === y);
 }
 
+// Modify map generation to track first reveal
+let firstReveal = true;
+
+// Function to ensure first reveal is safe
+function ensureSafeFirstReveal(revealX, revealY) {
+  // If first reveal, relocate water tiles to ensure 0 water around reveal tile
+  if (firstReveal) {
+    firstReveal = false;
+
+    // Find and relocate water tiles around the reveal tile
+    const tilesToRelocate = [];
+
+    // Identify water tiles around the reveal area
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const checkX = revealX + dx;
+        const checkY = revealY + dy;
+
+        if (
+          checkX >= 0 &&
+          checkX < MAP_COLS &&
+          checkY >= 0 &&
+          checkY < MAP_ROWS &&
+          map[checkY][checkX] === "water"
+        ) {
+          tilesToRelocate.push({ x: checkX, y: checkY });
+        }
+      }
+    }
+
+    // Remove water tiles from original locations
+    tilesToRelocate.forEach((tile) => {
+      map[tile.y][tile.x] = "land";
+    });
+
+    // Randomly relocate water tiles to other locations
+    tilesToRelocate.forEach(() => {
+      let placed = false;
+      while (!placed) {
+        const newX = Math.floor(Math.random() * MAP_COLS);
+        const newY = Math.floor(Math.random() * MAP_ROWS);
+
+        // Ensure new location is not too close to the reveal tile and is currently land
+        const tooClose =
+          Math.abs(newX - revealX) <= 1 && Math.abs(newY - revealY) <= 1;
+
+        if (!tooClose && map[newY][newX] === "land") {
+          map[newY][newX] = "water";
+          placed = true;
+        }
+      }
+    });
+  }
+}
+
 // Function to reveal tiles recursively
 function revealTiles(x, y) {
+  ensureSafeFirstReveal(x, y);
   // Check bounds
   if (x < 0 || x >= MAP_COLS || y < 0 || y >= MAP_ROWS) {
     return;
@@ -256,7 +312,7 @@ function render() {
         const screenY = row * TILE_SIZE - offsetY;
 
         // Draw base tile
-        ctx.fillStyle = map[mapY][mapX] === "water" ? "#87ceeb" : "#228b22";
+        ctx.fillStyle = "#228b22";
         ctx.fillRect(screenX, screenY, TILE_SIZE, TILE_SIZE);
 
         // If tile is revealed, show additional information
