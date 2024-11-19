@@ -204,14 +204,17 @@ document.addEventListener("keydown", (e) => {
     const tileX = Math.floor(playerCenterX / TILE_SIZE);
     const tileY = Math.floor(playerCenterY / TILE_SIZE);
 
-    const flagIndex = flags.findIndex(
-      (flag) => flag.x === tileX && flag.y === tileY
-    );
+    // Prevent flagging revealed tiles
+    if (!revealedTiles[tileY][tileX]) {
+      const flagIndex = flags.findIndex(
+        (flag) => flag.x === tileX && flag.y === tileY
+      );
 
-    if (flagIndex === -1) {
-      flags.push({ x: tileX, y: tileY });
-    } else {
-      flags.splice(flagIndex, 1);
+      if (flagIndex === -1) {
+        flags.push({ x: tileX, y: tileY });
+      } else {
+        flags.splice(flagIndex, 1);
+      }
     }
   } else if (e.key === "Enter") {
     // Handle tile reveal
@@ -317,6 +320,10 @@ function render() {
 
         // If tile is revealed, show additional information
         if (revealedTiles[mapY][mapX]) {
+          // Changed background color for revealed tiles to brown
+          ctx.fillStyle = "#8B4513"; // Saddle Brown
+          ctx.fillRect(screenX, screenY, TILE_SIZE, TILE_SIZE);
+
           if (map[mapY][mapX] === "water") {
             // Show red for water tiles
             ctx.fillStyle = "rgba(255, 0, 0, 0.5)";
