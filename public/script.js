@@ -9,6 +9,8 @@ const CAMERA_LERP = 0.1; // Camera smoothing factor (0-1)
 const MAX_LIVES = 3;
 let lives = MAX_LIVES;
 let gameOver = false;
+let gameStartTime = null;
+let elapsedTime = 0;
 
 // Set up the canvas and context
 const canvas = document.getElementById("game-canvas");
@@ -139,6 +141,11 @@ function ensureSafeFirstReveal(revealX, revealY) {
 
 // Function to reveal tiles recursively
 function revealTiles(x, y) {
+  // Start timer on first reveal if not already started
+  if (!gameStartTime) {
+    gameStartTime = Date.now();
+  }
+
   ensureSafeFirstReveal(x, y);
 
   // Check bounds
@@ -290,6 +297,11 @@ function update() {
     0,
     Math.min(camera.y, MAP_ROWS * TILE_SIZE - canvas.height)
   );
+
+  // Update elapsed time if game has started
+  if (gameStartTime) {
+    elapsedTime = Math.floor((Date.now() - gameStartTime) / 1000);
+  }
 }
 
 // Function to draw a flag
@@ -380,38 +392,63 @@ function render() {
   // Draw player
   ctx.fillStyle = "#ff5733";
   ctx.fillRect(player.x - camera.x, player.y - camera.y, TILE_SIZE, TILE_SIZE);
+  // Draw timer in top right
+  if (gameStartTime) {
+    ctx.fillStyle = "black";
+    ctx.font = "24px 'Caveat'";
+    ctx.textAlign = "right";
+    ctx.fillText(`${elapsedTime}`, canvas.width - 10, 30);
+  }
 
-  // Draw hearts
+  // Draw lives in bottom left with improved heart shape
   for (let i = 0; i < lives; i++) {
     ctx.fillStyle = "red";
     ctx.beginPath();
-    const heartX = canvas.width - 40 * (i + 1);
-    const heartY = 20;
-    ctx.moveTo(heartX, heartY + 10);
+    const heartX = 15 + 25 * i;
+    const heartY = canvas.height - 30;
+    const size = 12;
+
+    // Left heart curve
+    ctx.moveTo(heartX, heartY + size / 2);
     ctx.bezierCurveTo(
       heartX,
       heartY,
-      heartX - 10,
+      heartX - size,
       heartY,
-      heartX - 20,
-      heartY + 10
+      heartX - size,
+      heartY + size / 2
     );
+
+    // Right heart curve
     ctx.bezierCurveTo(
-      heartX - 30,
-      heartY + 20,
-      heartX - 30,
-      heartY + 40,
+      heartX - size,
+      heartY + size,
       heartX,
-      heartY + 60
+      heartY + size * 1.2,
+      heartX,
+      heartY + size * 1.5
     );
+
+    // Right side curve
     ctx.bezierCurveTo(
-      heartX + 30,
-      heartY + 40,
-      heartX + 30,
-      heartY + 20,
-      heartX + 20,
-      heartY + 10
+      heartX + size,
+      heartY + size * 1.2,
+      heartX + size,
+      heartY + size,
+      heartX + size,
+      heartY + size / 2
     );
+
+    // Left side curve
+    ctx.bezierCurveTo(
+      heartX + size,
+      heartY,
+      heartX,
+      heartY,
+      heartX,
+      heartY + size / 2
+    );
+
     ctx.fill();
   }
 
