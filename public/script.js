@@ -9,6 +9,10 @@ const CAMERA_LERP = 0.1; // Camera smoothing factor (0-1)
 const MAX_LIVES = 3;
 let lives = MAX_LIVES;
 let gameOver = false;
+let gameStartTime = null;
+let elapsedTime = 0;
+let minimapExpanded = false;
+const MINIMAP_SIZE = 150;
 
 // Set up the canvas and context
 const canvas = document.getElementById("game-canvas");
@@ -139,6 +143,11 @@ function ensureSafeFirstReveal(revealX, revealY) {
 
 // Function to reveal tiles recursively
 function revealTiles(x, y) {
+  // Start timer on first reveal if not already started
+  if (!gameStartTime) {
+    gameStartTime = Date.now();
+  }
+
   ensureSafeFirstReveal(x, y);
 
   // Check bounds
@@ -157,6 +166,12 @@ function revealTiles(x, y) {
   // Lose a life if water tile is revealed
   if (map[y][x] === "water") {
     lives--;
+
+    // Automatically place a flag on the water tile
+    if (!hasFlag(x, y)) {
+      flags.push({ x: x, y: y });
+    }
+
     if (lives <= 0) {
       gameOver = true;
     }
@@ -210,6 +225,11 @@ document.addEventListener("keydown", (e) => {
   if (gameOver) return;
 
   keys[e.key] = true;
+
+  if (e.key === "m") {
+    // Toggle minimap expansion
+    minimapExpanded = !minimapExpanded;
+  }
 
   if (e.key === " ") {
     // Handle flag placement/removal
@@ -290,6 +310,11 @@ function update() {
     0,
     Math.min(camera.y, MAP_ROWS * TILE_SIZE - canvas.height)
   );
+
+  // Update elapsed time if game has started
+  if (gameStartTime) {
+    elapsedTime = Math.floor((Date.now() - gameStartTime) / 1000);
+  }
 }
 
 // Function to draw a flag
@@ -381,37 +406,73 @@ function render() {
   ctx.fillStyle = "#ff5733";
   ctx.fillRect(player.x - camera.x, player.y - camera.y, TILE_SIZE, TILE_SIZE);
 
-  // Draw hearts
+  // Calculate total mines and placed flags
+  const totalMines = map.flat().filter((tile) => tile === "water").length;
+  const placedFlags = flags.length;
+
+  // Draw mine counter in top left
+  ctx.fillStyle = "black";
+  ctx.font = "24px 'Caveat'";
+  ctx.textAlign = "left";
+  ctx.fillText(`Mines Left: ${totalMines - placedFlags}`, 10, 30);
+
+  // Draw timer in top right
+  if (gameStartTime) {
+    ctx.fillStyle = "black";
+    ctx.font = "24px 'Caveat'";
+    ctx.textAlign = "right";
+    ctx.fillText(`Time: ${elapsedTime}`, canvas.width - 10, 30);
+  }
+
+  // Draw lives in bottom left with improved heart shape
   for (let i = 0; i < lives; i++) {
     ctx.fillStyle = "red";
     ctx.beginPath();
-    const heartX = canvas.width - 40 * (i + 1);
-    const heartY = 20;
-    ctx.moveTo(heartX, heartY + 10);
+    const heartX = 15 + 25 * i;
+    const heartY = canvas.height - 30;
+    const size = 12;
+
+    // Left heart curve
+    ctx.moveTo(heartX, heartY + size / 2);
     ctx.bezierCurveTo(
       heartX,
       heartY,
-      heartX - 10,
+      heartX - size,
       heartY,
-      heartX - 20,
-      heartY + 10
+      heartX - size,
+      heartY + size / 2
     );
+
+    // Right heart curve
     ctx.bezierCurveTo(
-      heartX - 30,
-      heartY + 20,
-      heartX - 30,
-      heartY + 40,
+      heartX - size,
+      heartY + size,
       heartX,
-      heartY + 60
+      heartY + size * 1.2,
+      heartX,
+      heartY + size * 1.5
     );
+
+    // Right side curve
     ctx.bezierCurveTo(
-      heartX + 30,
-      heartY + 40,
-      heartX + 30,
-      heartY + 20,
-      heartX + 20,
-      heartY + 10
+      heartX + size,
+      heartY + size * 1.2,
+      heartX + size,
+      heartY + size,
+      heartX + size,
+      heartY + size / 2
     );
+
+    // Left side curve
+    ctx.bezierCurveTo(
+      heartX + size,
+      heartY,
+      heartX,
+      heartY,
+      heartX,
+      heartY + size / 2
+    );
+
     ctx.fill();
   }
 
@@ -422,6 +483,72 @@ function render() {
     ctx.textAlign = "center";
     ctx.fillText("YOU LOSE NERD", canvas.width / 2, canvas.height / 2);
   }
+
+  renderMinimap();
+}
+
+function renderMinimap() {
+  const mapWidth = MAP_COLS * TILE_SIZE;
+  const mapHeight = MAP_ROWS * TILE_SIZE;
+
+  let minimapWidth, minimapHeight, minimapX, minimapY;
+
+  if (minimapExpanded) {
+    // Fill entire canvas when expanded
+    minimapWidth = canvas.width;
+    minimapHeight = canvas.height;
+    minimapX = 0;
+    minimapY = 0;
+  } else {
+    // Small fixed-size minimap in bottom right
+    minimapWidth = MINIMAP_SIZE;
+    minimapHeight = MINIMAP_SIZE;
+    minimapX = canvas.width - minimapWidth - 10;
+    minimapY = canvas.height - minimapHeight - 10;
+  }
+
+  // Draw minimap background
+  ctx.fillStyle = "rgba(200, 200, 200, 0.7)";
+  ctx.fillRect(minimapX, minimapY, minimapWidth, minimapHeight);
+
+  // Scale factor to fit entire map in minimap
+  const scaleX = minimapWidth / MAP_COLS;
+  const scaleY = minimapHeight / MAP_ROWS;
+
+  // Render map tiles in minimap
+  for (let y = 0; y < MAP_ROWS; y++) {
+    for (let x = 0; x < MAP_COLS; x++) {
+      let tileColor;
+
+      if (revealedTiles[y][x]) {
+        // Revealed tiles
+        tileColor = map[y][x] === "water" ? "red" : "brown";
+      } else if (hasFlag(x, y)) {
+        // Flagged tiles
+        tileColor = "yellow";
+      } else {
+        // Unrevealed tiles
+        tileColor = "green";
+      }
+
+      ctx.fillStyle = tileColor;
+      ctx.fillRect(
+        minimapX + x * scaleX,
+        minimapY + y * scaleY,
+        scaleX,
+        scaleY
+      );
+    }
+  }
+
+  // Render player position on minimap
+  ctx.fillStyle = "blue";
+  ctx.fillRect(
+    minimapX + (player.x / TILE_SIZE) * scaleX,
+    minimapY + (player.y / TILE_SIZE) * scaleY,
+    scaleX * 2,
+    scaleY * 2
+  );
 }
 
 // Start the game
