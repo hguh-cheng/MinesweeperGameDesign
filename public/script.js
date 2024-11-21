@@ -11,6 +11,8 @@ let lives = MAX_LIVES;
 let gameOver = false;
 let gameStartTime = null;
 let elapsedTime = 0;
+let minimapExpanded = false;
+const MINIMAP_SIZE = 150;
 
 // Set up the canvas and context
 const canvas = document.getElementById("game-canvas");
@@ -223,6 +225,11 @@ document.addEventListener("keydown", (e) => {
   if (gameOver) return;
 
   keys[e.key] = true;
+
+  if (e.key === "m") {
+    // Toggle minimap expansion
+    minimapExpanded = !minimapExpanded;
+  }
 
   if (e.key === " ") {
     // Handle flag placement/removal
@@ -476,6 +483,72 @@ function render() {
     ctx.textAlign = "center";
     ctx.fillText("YOU LOSE NERD", canvas.width / 2, canvas.height / 2);
   }
+
+  renderMinimap();
+}
+
+function renderMinimap() {
+  const mapWidth = MAP_COLS * TILE_SIZE;
+  const mapHeight = MAP_ROWS * TILE_SIZE;
+
+  let minimapWidth, minimapHeight, minimapX, minimapY;
+
+  if (minimapExpanded) {
+    // Fill entire canvas when expanded
+    minimapWidth = canvas.width;
+    minimapHeight = canvas.height;
+    minimapX = 0;
+    minimapY = 0;
+  } else {
+    // Small fixed-size minimap in bottom right
+    minimapWidth = MINIMAP_SIZE;
+    minimapHeight = MINIMAP_SIZE;
+    minimapX = canvas.width - minimapWidth - 10;
+    minimapY = canvas.height - minimapHeight - 10;
+  }
+
+  // Draw minimap background
+  ctx.fillStyle = "rgba(200, 200, 200, 0.7)";
+  ctx.fillRect(minimapX, minimapY, minimapWidth, minimapHeight);
+
+  // Scale factor to fit entire map in minimap
+  const scaleX = minimapWidth / MAP_COLS;
+  const scaleY = minimapHeight / MAP_ROWS;
+
+  // Render map tiles in minimap
+  for (let y = 0; y < MAP_ROWS; y++) {
+    for (let x = 0; x < MAP_COLS; x++) {
+      let tileColor;
+
+      if (revealedTiles[y][x]) {
+        // Revealed tiles
+        tileColor = map[y][x] === "water" ? "red" : "brown";
+      } else if (hasFlag(x, y)) {
+        // Flagged tiles
+        tileColor = "yellow";
+      } else {
+        // Unrevealed tiles
+        tileColor = "green";
+      }
+
+      ctx.fillStyle = tileColor;
+      ctx.fillRect(
+        minimapX + x * scaleX,
+        minimapY + y * scaleY,
+        scaleX,
+        scaleY
+      );
+    }
+  }
+
+  // Render player position on minimap
+  ctx.fillStyle = "blue";
+  ctx.fillRect(
+    minimapX + (player.x / TILE_SIZE) * scaleX,
+    minimapY + (player.y / TILE_SIZE) * scaleY,
+    scaleX * 2,
+    scaleY * 2
+  );
 }
 
 // Start the game
