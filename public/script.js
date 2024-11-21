@@ -164,6 +164,12 @@ function revealTiles(x, y) {
   // Lose a life if water tile is revealed
   if (map[y][x] === "water") {
     lives--;
+
+    // Automatically place a flag on the water tile
+    if (!hasFlag(x, y)) {
+      flags.push({ x: x, y: y });
+    }
+
     if (lives <= 0) {
       gameOver = true;
     }
@@ -392,12 +398,23 @@ function render() {
   // Draw player
   ctx.fillStyle = "#ff5733";
   ctx.fillRect(player.x - camera.x, player.y - camera.y, TILE_SIZE, TILE_SIZE);
+
+  // Calculate total mines and placed flags
+  const totalMines = map.flat().filter((tile) => tile === "water").length;
+  const placedFlags = flags.length;
+
+  // Draw mine counter in top left
+  ctx.fillStyle = "black";
+  ctx.font = "24px 'Caveat'";
+  ctx.textAlign = "left";
+  ctx.fillText(`Mines Left: ${totalMines - placedFlags}`, 10, 30);
+
   // Draw timer in top right
   if (gameStartTime) {
     ctx.fillStyle = "black";
     ctx.font = "24px 'Caveat'";
     ctx.textAlign = "right";
-    ctx.fillText(`${elapsedTime}`, canvas.width - 10, 30);
+    ctx.fillText(`Time: ${elapsedTime}`, canvas.width - 10, 30);
   }
 
   // Draw lives in bottom left with improved heart shape
