@@ -7,12 +7,22 @@ const VIEWPORT_COLS = 20; // Number of cols visible on the screen
 const PLAYER_SPEED = 4; // Pixels per frame
 const CAMERA_LERP = 0.1; // Camera smoothing factor (0-1)
 const MAX_LIVES = 3;
+const MINIMAP_SIZE = 150;
+
+// Game States
+const GAME_STATES = {
+  MENU: 'menu',
+  PLAYING: 'playing',
+  GAMEOVER: 'gameover'
+};
+let currentState = GAME_STATES.MENU;
+
+// Game Variables
 let lives = MAX_LIVES;
 let gameOver = false;
 let gameStartTime = null;
 let elapsedTime = 0;
 let minimapExpanded = false;
-const MINIMAP_SIZE = 150;
 
 // Set up the canvas and context
 const canvas = document.getElementById("game-canvas");
@@ -21,19 +31,48 @@ canvas.height = VIEWPORT_ROWS * TILE_SIZE;
 const ctx = canvas.getContext("2d");
 
 // Generate the map
-const map = Array.from({ length: MAP_ROWS }, () =>
-  Array.from({ length: MAP_COLS }, () =>
-    Math.random() < 0.2 ? "water" : "land"
-  )
-);
+let map = [];
+let revealedTiles = [];
+let flags = [];
 
-// Array to store revealed tiles
-const revealedTiles = Array.from({ length: MAP_ROWS }, () =>
-  Array.from({ length: MAP_COLS }, () => false)
-);
+// Initialize the game
+function initializeGame() {
+  // Reset game variables
+  lives = MAX_LIVES;
+  gameOver = false;
+  gameStartTime = null;
+  elapsedTime = 0;
+  minimapExpanded = false;
+  flags = [];
 
-// Array to store placed flags
-const flags = [];
+  // Clear all key states
+  for (let key in keys) {
+    keys[key] = false;
+  }
+
+  // Generate the map
+  map = Array.from({ length: MAP_ROWS }, () =>
+    Array.from({ length: MAP_COLS }, () =>
+      Math.random() < 0.2 ? "water" : "land"
+    )
+  );
+
+  // Reset revealed tiles
+  revealedTiles = Array.from({ length: MAP_ROWS }, () =>
+    Array.from({ length: MAP_COLS }, () => false)
+  );
+
+  // Player's starting position (in pixels)
+  player.x = 20 * TILE_SIZE;
+  player.y = 20 * TILE_SIZE;
+
+  // Camera position (in pixels)
+  camera.x = player.x - canvas.width / 2;
+  camera.y = player.y - canvas.height / 2;
+
+  // Reset first reveal flag
+  firstReveal = true;
+}
 
 // Player's starting position (in pixels)
 const player = {
@@ -95,7 +134,7 @@ function ensureSafeFirstReveal(revealX, revealY) {
   if (firstReveal) {
     firstReveal = false;
 
-    // Find and relocate water tiles around the reveal tile
+    // Find and relocate water tiles around the reveal area
     const tilesToRelocate = [];
 
     // Identify water tiles around the reveal area
@@ -174,6 +213,7 @@ function revealTiles(x, y) {
 
     if (lives <= 0) {
       gameOver = true;
+      currentState = GAME_STATES.GAMEOVER;
     }
   }
 
@@ -222,57 +262,75 @@ function chordTiles(x, y) {
 // Handle keyboard input
 const keys = {};
 document.addEventListener("keydown", (e) => {
-  if (gameOver) return;
+  if (currentState === GAME_STATES.PLAYING) {
+    keys[e.key] = true;
 
-  keys[e.key] = true;
+    if (e.key === "m" || e.key === "M") {
+      // Toggle minimap expansion
+      minimapExpanded = !minimapExpanded;
+    }
 
-  if (e.key === "m") {
-    // Toggle minimap expansion
-    minimapExpanded = !minimapExpanded;
-  }
+    if (e.key === " ") {
+      // Handle flag placement/removal
+      const playerCenterX = player.x + TILE_SIZE / 2;
+      const playerCenterY = player.y + TILE_SIZE / 2;
+      const tileX = Math.floor(playerCenterX / TILE_SIZE);
+      const tileY = Math.floor(playerCenterY / TILE_SIZE);
 
-  if (e.key === " ") {
-    // Handle flag placement/removal
-    const playerCenterX = player.x + TILE_SIZE / 2;
-    const playerCenterY = player.y + TILE_SIZE / 2;
-    const tileX = Math.floor(playerCenterX / TILE_SIZE);
-    const tileY = Math.floor(playerCenterY / TILE_SIZE);
+      // Prevent flagging revealed tiles
+      if (!revealedTiles[tileY][tileX]) {
+        const flagIndex = flags.findIndex(
+          (flag) => flag.x === tileX && flag.y === tileY
+        );
 
-    // Prevent flagging revealed tiles
-    if (!revealedTiles[tileY][tileX]) {
-      const flagIndex = flags.findIndex(
-        (flag) => flag.x === tileX && flag.y === tileY
-      );
+        if (flagIndex === -1) {
+          flags.push({ x: tileX, y: tileY });
+        } else {
+          flags.splice(flagIndex, 1);
+        }
+      }
+    } else if (e.key === "Enter") {
+      // Handle tile reveal
+      const playerCenterX = player.x + TILE_SIZE / 2;
+      const playerCenterY = player.y + TILE_SIZE / 2;
+      const tileX = Math.floor(playerCenterX / TILE_SIZE);
+      const tileY = Math.floor(playerCenterY / TILE_SIZE);
 
-      if (flagIndex === -1) {
-        flags.push({ x: tileX, y: tileY });
-      } else {
-        flags.splice(flagIndex, 1);
+      // Only reveal if there's no flag
+      if (!hasFlag(tileX, tileY)) {
+        if (
+          revealedTiles[tileY][tileX] &&
+          countWaterTilesAround(tileX, tileY) > 0
+        ) {
+          // If tile is revealed and has water neighbors, attempt chording
+          chordTiles(tileX, tileY);
+        } else {
+          // Regular tile reveal
+          revealTiles(tileX, tileY);
+        }
       }
     }
-  } else if (e.key === "Enter") {
-    // Handle tile reveal
-    const playerCenterX = player.x + TILE_SIZE / 2;
-    const playerCenterY = player.y + TILE_SIZE / 2;
-    const tileX = Math.floor(playerCenterX / TILE_SIZE);
-    const tileY = Math.floor(playerCenterY / TILE_SIZE);
-
-    // Only reveal if there's no flag
-    if (!hasFlag(tileX, tileY)) {
-      if (
-        revealedTiles[tileY][tileX] &&
-        countWaterTilesAround(tileX, tileY) > 0
-      ) {
-        // If tile is revealed and has water neighbors, attempt chording
-        chordTiles(tileX, tileY);
-      } else {
-        // Regular tile reveal
-        revealTiles(tileX, tileY);
-      }
+  } else if (currentState === GAME_STATES.MENU) {
+    // Start game from menu
+    if (e.key === "Enter") {
+      currentState = GAME_STATES.PLAYING;
+      initializeGame();
+    }
+  } else if (currentState === GAME_STATES.GAMEOVER) {
+    if (e.key === "r" || e.key === "R") {
+      // Restart the game
+      currentState = GAME_STATES.PLAYING;
+      initializeGame();
+    } else if (e.key === "m" || e.key === "M") {
+      // Return to main menu
+      currentState = GAME_STATES.MENU;
     }
   }
 });
-document.addEventListener("keyup", (e) => (keys[e.key] = false));
+document.addEventListener("keyup", (e) => {
+  // Always reset key state on keyup, regardless of game state
+  keys[e.key] = false;
+});
 
 // Game loop
 function gameLoop() {
@@ -288,32 +346,34 @@ function lerp(start, end, t) {
 
 // Update player and camera position
 function update() {
-  if (keys["ArrowUp"]) player.y -= PLAYER_SPEED;
-  if (keys["ArrowDown"]) player.y += PLAYER_SPEED;
-  if (keys["ArrowLeft"]) player.x -= PLAYER_SPEED;
-  if (keys["ArrowRight"]) player.x += PLAYER_SPEED;
+  if (currentState === GAME_STATES.PLAYING) {
+    if (keys["ArrowUp"] || keys["w"] || keys["W"]) player.y -= PLAYER_SPEED;
+    if (keys["ArrowDown"] || keys["s"] || keys["S"]) player.y += PLAYER_SPEED;
+    if (keys["ArrowLeft"] || keys["a"] || keys["A"]) player.x -= PLAYER_SPEED;
+    if (keys["ArrowRight"] || keys["d"] || keys["D"]) player.x += PLAYER_SPEED;
 
-  player.x = Math.max(0, Math.min(player.x, (MAP_COLS - 1) * TILE_SIZE));
-  player.y = Math.max(0, Math.min(player.y, (MAP_ROWS - 1) * TILE_SIZE));
+    player.x = Math.max(0, Math.min(player.x, (MAP_COLS - 1) * TILE_SIZE));
+    player.y = Math.max(0, Math.min(player.y, (MAP_ROWS - 1) * TILE_SIZE));
 
-  const targetCameraX = player.x - canvas.width / 2;
-  const targetCameraY = player.y - canvas.height / 2;
+    const targetCameraX = player.x - canvas.width / 2 + TILE_SIZE / 2;
+    const targetCameraY = player.y - canvas.height / 2 + TILE_SIZE / 2;
 
-  camera.x = lerp(camera.x, targetCameraX, CAMERA_LERP);
-  camera.y = lerp(camera.y, targetCameraY, CAMERA_LERP);
+    camera.x = lerp(camera.x, targetCameraX, CAMERA_LERP);
+    camera.y = lerp(camera.y, targetCameraY, CAMERA_LERP);
 
-  camera.x = Math.max(
-    0,
-    Math.min(camera.x, MAP_COLS * TILE_SIZE - canvas.width)
-  );
-  camera.y = Math.max(
-    0,
-    Math.min(camera.y, MAP_ROWS * TILE_SIZE - canvas.height)
-  );
+    camera.x = Math.max(
+      0,
+      Math.min(camera.x, MAP_COLS * TILE_SIZE - canvas.width)
+    );
+    camera.y = Math.max(
+      0,
+      Math.min(camera.y, MAP_ROWS * TILE_SIZE - canvas.height)
+    );
 
-  // Update elapsed time if game has started
-  if (gameStartTime) {
-    elapsedTime = Math.floor((Date.now() - gameStartTime) / 1000);
+    // Update elapsed time if game has started
+    if (gameStartTime) {
+      elapsedTime = Math.floor((Date.now() - gameStartTime) / 1000);
+    }
   }
 }
 
@@ -334,10 +394,21 @@ function drawFlag(x, y) {
   ctx.fill();
 }
 
-// Render the visible map and player
+// Render the game based on current state
 function render() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  if (currentState === GAME_STATES.MENU) {
+    renderMainMenu();
+  } else if (currentState === GAME_STATES.PLAYING) {
+    renderGame();
+  } else if (currentState === GAME_STATES.GAMEOVER) {
+    renderGameOver();
+  }
+}
+
+// Render the main game view
+function renderGame() {
   const startTileX = Math.floor(camera.x / TILE_SIZE);
   const startTileY = Math.floor(camera.y / TILE_SIZE);
   const offsetX = camera.x % TILE_SIZE;
@@ -412,16 +483,20 @@ function render() {
 
   // Draw mine counter in top left
   ctx.fillStyle = "black";
-  ctx.font = "24px 'Caveat'";
+  ctx.font = "24px Arial";
   ctx.textAlign = "left";
   ctx.fillText(`Mines Left: ${totalMines - placedFlags}`, 10, 30);
 
   // Draw timer in top right
   if (gameStartTime) {
+    const minutes = Math.floor(elapsedTime / 60);
+    const seconds = elapsedTime % 60;
+    const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
     ctx.fillStyle = "black";
-    ctx.font = "24px 'Caveat'";
+    ctx.font = "24px Arial";
     ctx.textAlign = "right";
-    ctx.fillText(`Time: ${elapsedTime}`, canvas.width - 10, 30);
+    ctx.fillText(`Time: ${timeString}`, canvas.width - 10, 30);
   }
 
   // Draw lives in bottom left with improved heart shape
@@ -476,17 +551,61 @@ function render() {
     ctx.fill();
   }
 
-  // Game over text
-  if (gameOver) {
-    ctx.fillStyle = "red";
-    ctx.font = "48px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText("YOU LOSE NERD", canvas.width / 2, canvas.height / 2);
-  }
-
+  // Draw minimap
   renderMinimap();
 }
 
+// Render the main menu
+function renderMainMenu() {
+  // Draw semi-transparent overlay
+  ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Display game title
+  ctx.fillStyle = "white";
+  ctx.font = "48px Arial";
+  ctx.textAlign = "center";
+  ctx.fillText("Welcome to the Minefield Game", canvas.width / 2, canvas.height / 2 - 50);
+
+  // Display instructions
+  ctx.font = "24px Arial";
+  ctx.fillText("Use Arrow Keys or WASD to move", canvas.width / 2, canvas.height / 2);
+  ctx.fillText("Press 'Enter' to reveal a tile", canvas.width / 2, canvas.height / 2 + 30);
+  ctx.fillText("Press 'Space' to place/remove a flag", canvas.width / 2, canvas.height / 2 + 60);
+  ctx.fillText("Press 'M' to toggle the minimap", canvas.width / 2, canvas.height / 2 + 90);
+
+  // Instructions to start
+  ctx.font = "32px Arial";
+  ctx.fillText("Press 'Enter' to Start", canvas.width / 2, canvas.height / 2 + 150);
+}
+
+// Render the game over screen
+function renderGameOver() {
+  // Draw semi-transparent overlay
+  ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Display game over text
+  ctx.fillStyle = "red";
+  ctx.font = "48px Arial";
+  ctx.textAlign = "center";
+  ctx.fillText("YOU LOSE, NERD!", canvas.width / 2, canvas.height / 2 - 50);
+
+  // Display final time
+  const minutes = Math.floor(elapsedTime / 60);
+  const seconds = elapsedTime % 60;
+  const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+  ctx.fillStyle = "white";
+  ctx.font = "24px Arial";
+  ctx.fillText(`Time Survived: ${timeString}`, canvas.width / 2, canvas.height / 2);
+
+  // Instructions to restart or go to menu
+  ctx.fillText("Press 'R' to Restart", canvas.width / 2, canvas.height / 2 + 50);
+  ctx.fillText("Press 'M' for Main Menu", canvas.width / 2, canvas.height / 2 + 80);
+}
+
+// Function to render the minimap
 function renderMinimap() {
   const mapWidth = MAP_COLS * TILE_SIZE;
   const mapHeight = MAP_ROWS * TILE_SIZE;
@@ -544,12 +663,43 @@ function renderMinimap() {
   // Render player position on minimap
   ctx.fillStyle = "blue";
   ctx.fillRect(
-    minimapX + (player.x / TILE_SIZE) * scaleX,
-    minimapY + (player.y / TILE_SIZE) * scaleY,
-    scaleX * 2,
-    scaleY * 2
+    minimapX + (player.x / TILE_SIZE) * scaleX - 2,
+    minimapY + (player.y / TILE_SIZE) * scaleY - 2,
+    4,
+    4
   );
+
+  // Optionally, draw camera view rectangle when minimap is expanded
+  if (minimapExpanded) {
+    const viewWidth = canvas.width / TILE_SIZE;
+    const viewHeight = canvas.height / TILE_SIZE;
+    ctx.strokeStyle = "blue";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(
+      (camera.x / TILE_SIZE) * scaleX,
+      (camera.y / TILE_SIZE) * scaleY,
+      viewWidth * scaleX,
+      viewHeight * scaleY
+    );
+  }
 }
 
-// Start the game
+// Start the game loop
 gameLoop();
+
+// Function to draw a flag (repeated for clarity)
+function drawFlag(x, y) {
+  ctx.beginPath();
+  ctx.moveTo(x + TILE_SIZE * 0.7, y + TILE_SIZE * 0.2);
+  ctx.lineTo(x + TILE_SIZE * 0.7, y + TILE_SIZE * 0.8);
+  ctx.strokeStyle = "#4a4a4a";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(x + TILE_SIZE * 0.7, y + TILE_SIZE * 0.2);
+  ctx.lineTo(x + TILE_SIZE * 0.3, y + TILE_SIZE * 0.35);
+  ctx.lineTo(x + TILE_SIZE * 0.7, y + TILE_SIZE * 0.5);
+  ctx.fillStyle = "#ff0000";
+  ctx.fill();
+}
