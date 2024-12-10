@@ -212,8 +212,8 @@ function revealTiles(x, y) {
   // Check tile type
   if (map[y][x] === "water") {
     lives--;
-    const audioElement = document.getElementById("loseLife");
-    audioElement.play();
+    const loseLifeAudio = document.getElementById("loseLife");
+    loseLifeAudio.play();
 
     // Automatically place a flag on the water tile
     if (!hasFlag(x, y)) {
@@ -232,6 +232,8 @@ function revealTiles(x, y) {
 
   // If it's a land tile with no water neighbors, recursively reveal neighbors
   if (map[y][x] === "land" && countWaterTilesAround(x, y) === 0) {
+    const clearAudio = document.getElementById("clear");
+    clearAudio.play();
     // Reveal all 8 surrounding tiles
     for (let dy = -1; dy <= 1; dy++) {
       for (let dx = -1; dx <= 1; dx++) {
