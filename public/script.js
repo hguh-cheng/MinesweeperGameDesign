@@ -13,7 +13,8 @@ const MINIMAP_SIZE = 150;
 const GAME_STATES = {
   MENU: 'menu',
   PLAYING: 'playing',
-  GAMEOVER: 'gameover'
+  GAMEOVER: 'gameover',
+  WIN: 'win'
 };
 let currentState = GAME_STATES.MENU;
 
@@ -23,6 +24,9 @@ let gameOver = false;
 let gameStartTime = null;
 let elapsedTime = 0;
 let minimapExpanded = false;
+
+let totalLandCount = 0;
+let revealedSafeCount = 0;
 
 // Set up the canvas and context
 const canvas = document.getElementById("game-canvas");
@@ -35,7 +39,6 @@ let map = [];
 let revealedTiles = [];
 let flags = [];
 
-// Initialize the game
 function initializeGame() {
   // Reset game variables
   lives = MAX_LIVES;
@@ -44,6 +47,7 @@ function initializeGame() {
   elapsedTime = 0;
   minimapExpanded = false;
   flags = [];
+  revealedSafeCount = 0;
 
   // Clear all key states
   for (let key in keys) {
@@ -56,6 +60,9 @@ function initializeGame() {
       Math.random() < 0.2 ? "water" : "land"
     )
   );
+
+  // Count total land tiles for the win condition
+  totalLandCount = map.flat().filter(tile => tile === "land").length;
 
   // Reset revealed tiles
   revealedTiles = Array.from({ length: MAP_ROWS }, () =>
@@ -202,7 +209,7 @@ function revealTiles(x, y) {
   // Reveal current tile
   revealedTiles[y][x] = true;
 
-  // Lose a life if water tile is revealed
+  // Check tile type
   if (map[y][x] === "water") {
     lives--;
 
@@ -214,7 +221,11 @@ function revealTiles(x, y) {
     if (lives <= 0) {
       gameOver = true;
       currentState = GAME_STATES.GAMEOVER;
+      return;
     }
+  } else {
+    // It's a land tile, increment revealed safe count
+    revealedSafeCount++;
   }
 
   // If it's a land tile with no water neighbors, recursively reveal neighbors
@@ -227,6 +238,9 @@ function revealTiles(x, y) {
       }
     }
   }
+
+  // After revealing tiles, check if we've won
+  checkWinCondition();
 }
 
 // Function to reveal all surrounding tiles via chording
@@ -256,6 +270,16 @@ function chordTiles(x, y) {
         revealTiles(checkX, checkY);
       }
     }
+  }
+
+  // After chording (which may reveal tiles), check win condition
+  checkWinCondition();
+}
+
+function checkWinCondition() {
+  // Player wins if all safe tiles are revealed
+  if (revealedSafeCount === totalLandCount && !gameOver) {
+    currentState = GAME_STATES.WIN;
   }
 }
 
@@ -310,23 +334,63 @@ document.addEventListener("keydown", (e) => {
         }
       }
     }
+
+
+
+    // DEV CHEAT: Press 'y' to reveal all non-mines within a 10-tile radius around the player
+    else if (e.key === "y" || e.key === "Y") {
+      const playerCenterX = player.x + TILE_SIZE / 2;
+      const playerCenterY = player.y + TILE_SIZE / 2;
+      const playerTileX = Math.floor(playerCenterX / TILE_SIZE);
+      const playerTileY = Math.floor(playerCenterY / TILE_SIZE);
+
+      // Define radius
+      const radius = 10;
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const checkX = playerTileX + dx;
+          const checkY = playerTileY + dy;
+
+          if (
+            checkX >= 0 && checkX < MAP_COLS &&
+            checkY >= 0 && checkY < MAP_ROWS
+          ) {
+            // If it's a land tile and not revealed, reveal it
+            if (map[checkY][checkX] === "land" && !revealedTiles[checkY][checkX]) {
+              revealTiles(checkX, checkY);
+            }
+          }
+        }
+      }
+    }
+
+
+
+
+
   } else if (currentState === GAME_STATES.MENU) {
-    // Start game from menu
     if (e.key === "Enter") {
       currentState = GAME_STATES.PLAYING;
       initializeGame();
     }
   } else if (currentState === GAME_STATES.GAMEOVER) {
     if (e.key === "r" || e.key === "R") {
-      // Restart the game
       currentState = GAME_STATES.PLAYING;
       initializeGame();
     } else if (e.key === "m" || e.key === "M") {
-      // Return to main menu
+      currentState = GAME_STATES.MENU;
+    }
+  } else if (currentState === GAME_STATES.WIN) {
+    // Similar controls to GAMEOVER state for restarting or menu
+    if (e.key === "r" || e.key === "R") {
+      currentState = GAME_STATES.PLAYING;
+      initializeGame();
+    } else if (e.key === "m" || e.key === "M") {
       currentState = GAME_STATES.MENU;
     }
   }
 });
+
 document.addEventListener("keyup", (e) => {
   // Always reset key state on keyup, regardless of game state
   keys[e.key] = false;
@@ -404,7 +468,34 @@ function render() {
     renderGame();
   } else if (currentState === GAME_STATES.GAMEOVER) {
     renderGameOver();
+  } else if (currentState === GAME_STATES.WIN) {
+    renderWin();
   }
+}
+
+function renderWin() {
+  // Draw semi-transparent overlay
+  ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Display win text
+  ctx.fillStyle = "gold";
+  ctx.font = "48px Arial";
+  ctx.textAlign = "center";
+  ctx.fillText("YOU WIN!", canvas.width / 2, canvas.height / 2 - 50);
+
+  // Display final time
+  const minutes = Math.floor(elapsedTime / 60);
+  const seconds = elapsedTime % 60;
+  const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+  ctx.fillStyle = "white";
+  ctx.font = "24px Arial";
+  ctx.fillText(`Completion Time: ${timeString}`, canvas.width / 2, canvas.height / 2);
+
+  // Instructions to restart or go to menu
+  ctx.fillText("Press 'R' to Restart", canvas.width / 2, canvas.height / 2 + 50);
+  ctx.fillText("Press 'M' for Main Menu", canvas.width / 2, canvas.height / 2 + 80);
 }
 
 // Render the main game view
@@ -475,7 +566,9 @@ function renderGame() {
 
   // Draw player
   ctx.fillStyle = "#ff5733";
-  ctx.fillRect(player.x - camera.x, player.y - camera.y, TILE_SIZE, TILE_SIZE);
+  const playerScreenX = player.x - camera.x;
+  const playerScreenY = player.y - camera.y;
+  ctx.fillRect(playerScreenX, playerScreenY, TILE_SIZE, TILE_SIZE);
 
   // Calculate total mines and placed flags
   const totalMines = map.flat().filter((tile) => tile === "water").length;
@@ -552,7 +645,7 @@ function renderGame() {
   }
 
   // Draw minimap
-  renderMinimap();
+  renderMinimap(playerScreenX, playerScreenY);
 }
 
 // Render the main menu
@@ -606,7 +699,7 @@ function renderGameOver() {
 }
 
 // Function to render the minimap
-function renderMinimap() {
+function renderMinimap(playerScreenX, playerScreenY) {
   const mapWidth = MAP_COLS * TILE_SIZE;
   const mapHeight = MAP_ROWS * TILE_SIZE;
 
@@ -626,8 +719,19 @@ function renderMinimap() {
     minimapY = canvas.height - minimapHeight - 10;
   }
 
-  // Draw minimap background
-  ctx.fillStyle = "rgba(200, 200, 200, 0.7)";
+    // Check if player overlaps minimap area
+  // If player's position is within the minimap rectangle, reduce minimap opacity
+  let minimapOpacity = 0.7; 
+  if (
+    playerScreenX >= minimapX && playerScreenX <= minimapX + minimapWidth &&
+    playerScreenY >= minimapY && playerScreenY <= minimapY + minimapHeight
+  ) {
+    // Player is behind the minimap, so make it more transparent
+    minimapOpacity = 0.05;
+  }
+
+  // Draw minimap background using the dynamic opacity
+  ctx.fillStyle = `rgba(200, 200, 200, ${minimapOpacity})`;
   ctx.fillRect(minimapX, minimapY, minimapWidth, minimapHeight);
 
   // Scale factor to fit entire map in minimap
