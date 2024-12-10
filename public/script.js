@@ -11,10 +11,10 @@ const MINIMAP_SIZE = 150;
 
 // Game States
 const GAME_STATES = {
-  MENU: 'menu',
-  PLAYING: 'playing',
-  GAMEOVER: 'gameover',
-  WIN: 'win'
+  MENU: "menu",
+  PLAYING: "playing",
+  GAMEOVER: "gameover",
+  WIN: "win",
 };
 let currentState = GAME_STATES.MENU;
 
@@ -62,7 +62,7 @@ function initializeGame() {
   );
 
   // Count total land tiles for the win condition
-  totalLandCount = map.flat().filter(tile => tile === "land").length;
+  totalLandCount = map.flat().filter((tile) => tile === "land").length;
 
   // Reset revealed tiles
   revealedTiles = Array.from({ length: MAP_ROWS }, () =>
@@ -212,6 +212,8 @@ function revealTiles(x, y) {
   // Check tile type
   if (map[y][x] === "water") {
     lives--;
+    const audioElement = document.getElementById("loseLife");
+    audioElement.play();
 
     // Automatically place a flag on the water tile
     if (!hasFlag(x, y)) {
@@ -335,39 +337,32 @@ document.addEventListener("keydown", (e) => {
       }
     }
 
-
-
     // DEV CHEAT: Press 'y' to reveal all non-mines within a 10-tile radius around the player
-    else if (e.key === "y" || e.key === "Y") {
-      const playerCenterX = player.x + TILE_SIZE / 2;
-      const playerCenterY = player.y + TILE_SIZE / 2;
-      const playerTileX = Math.floor(playerCenterX / TILE_SIZE);
-      const playerTileY = Math.floor(playerCenterY / TILE_SIZE);
+    // else if (e.key === "y" || e.key === "Y") {
+    //   const playerCenterX = player.x + TILE_SIZE / 2;
+    //   const playerCenterY = player.y + TILE_SIZE / 2;
+    //   const playerTileX = Math.floor(playerCenterX / TILE_SIZE);
+    //   const playerTileY = Math.floor(playerCenterY / TILE_SIZE);
 
-      // Define radius
-      const radius = 10;
-      for (let dy = -radius; dy <= radius; dy++) {
-        for (let dx = -radius; dx <= radius; dx++) {
-          const checkX = playerTileX + dx;
-          const checkY = playerTileY + dy;
+    //   // Define radius
+    //   const radius = 10;
+    //   for (let dy = -radius; dy <= radius; dy++) {
+    //     for (let dx = -radius; dx <= radius; dx++) {
+    //       const checkX = playerTileX + dx;
+    //       const checkY = playerTileY + dy;
 
-          if (
-            checkX >= 0 && checkX < MAP_COLS &&
-            checkY >= 0 && checkY < MAP_ROWS
-          ) {
-            // If it's a land tile and not revealed, reveal it
-            if (map[checkY][checkX] === "land" && !revealedTiles[checkY][checkX]) {
-              revealTiles(checkX, checkY);
-            }
-          }
-        }
-      }
-    }
-
-
-
-
-
+    //       if (
+    //         checkX >= 0 && checkX < MAP_COLS &&
+    //         checkY >= 0 && checkY < MAP_ROWS
+    //       ) {
+    //         // If it's a land tile and not revealed, reveal it
+    //         if (map[checkY][checkX] === "land" && !revealedTiles[checkY][checkX]) {
+    //           revealTiles(checkX, checkY);
+    //         }
+    //       }
+    //     }
+    //   }
+    // }
   } else if (currentState === GAME_STATES.MENU) {
     if (e.key === "Enter") {
       currentState = GAME_STATES.PLAYING;
@@ -487,15 +482,27 @@ function renderWin() {
   // Display final time
   const minutes = Math.floor(elapsedTime / 60);
   const seconds = elapsedTime % 60;
-  const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  const timeString = `${minutes}:${seconds.toString().padStart(2, "0")}`;
 
   ctx.fillStyle = "white";
   ctx.font = "24px Arial";
-  ctx.fillText(`Completion Time: ${timeString}`, canvas.width / 2, canvas.height / 2);
+  ctx.fillText(
+    `Completion Time: ${timeString}`,
+    canvas.width / 2,
+    canvas.height / 2
+  );
 
   // Instructions to restart or go to menu
-  ctx.fillText("Press 'R' to Restart", canvas.width / 2, canvas.height / 2 + 50);
-  ctx.fillText("Press 'M' for Main Menu", canvas.width / 2, canvas.height / 2 + 80);
+  ctx.fillText(
+    "Press 'R' to Restart",
+    canvas.width / 2,
+    canvas.height / 2 + 50
+  );
+  ctx.fillText(
+    "Press 'M' for Main Menu",
+    canvas.width / 2,
+    canvas.height / 2 + 80
+  );
 }
 
 // Render the main game view
@@ -584,7 +591,7 @@ function renderGame() {
   if (gameStartTime) {
     const minutes = Math.floor(elapsedTime / 60);
     const seconds = elapsedTime % 60;
-    const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    const timeString = `${minutes}:${seconds.toString().padStart(2, "0")}`;
 
     ctx.fillStyle = "black";
     ctx.font = "24px Arial";
@@ -658,18 +665,42 @@ function renderMainMenu() {
   ctx.fillStyle = "white";
   ctx.font = "48px Arial";
   ctx.textAlign = "center";
-  ctx.fillText("Welcome to the Minefield Game", canvas.width / 2, canvas.height / 2 - 50);
+  ctx.fillText(
+    "Welcome to the Minefield Game",
+    canvas.width / 2,
+    canvas.height / 2 - 50
+  );
 
   // Display instructions
   ctx.font = "24px Arial";
-  ctx.fillText("Use Arrow Keys or WASD to move", canvas.width / 2, canvas.height / 2);
-  ctx.fillText("Press 'Enter' to reveal a tile", canvas.width / 2, canvas.height / 2 + 30);
-  ctx.fillText("Press 'Space' to place/remove a flag", canvas.width / 2, canvas.height / 2 + 60);
-  ctx.fillText("Press 'M' to toggle the minimap", canvas.width / 2, canvas.height / 2 + 90);
+  ctx.fillText(
+    "Use Arrow Keys or WASD to move",
+    canvas.width / 2,
+    canvas.height / 2
+  );
+  ctx.fillText(
+    "Press 'Enter' to reveal a tile",
+    canvas.width / 2,
+    canvas.height / 2 + 30
+  );
+  ctx.fillText(
+    "Press 'Space' to place/remove a flag",
+    canvas.width / 2,
+    canvas.height / 2 + 60
+  );
+  ctx.fillText(
+    "Press 'M' to toggle the minimap",
+    canvas.width / 2,
+    canvas.height / 2 + 90
+  );
 
   // Instructions to start
   ctx.font = "32px Arial";
-  ctx.fillText("Press 'Enter' to Start", canvas.width / 2, canvas.height / 2 + 150);
+  ctx.fillText(
+    "Press 'Enter' to Start",
+    canvas.width / 2,
+    canvas.height / 2 + 150
+  );
 }
 
 // Render the game over screen
@@ -687,15 +718,27 @@ function renderGameOver() {
   // Display final time
   const minutes = Math.floor(elapsedTime / 60);
   const seconds = elapsedTime % 60;
-  const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  const timeString = `${minutes}:${seconds.toString().padStart(2, "0")}`;
 
   ctx.fillStyle = "white";
   ctx.font = "24px Arial";
-  ctx.fillText(`Time Survived: ${timeString}`, canvas.width / 2, canvas.height / 2);
+  ctx.fillText(
+    `Time Survived: ${timeString}`,
+    canvas.width / 2,
+    canvas.height / 2
+  );
 
   // Instructions to restart or go to menu
-  ctx.fillText("Press 'R' to Restart", canvas.width / 2, canvas.height / 2 + 50);
-  ctx.fillText("Press 'M' for Main Menu", canvas.width / 2, canvas.height / 2 + 80);
+  ctx.fillText(
+    "Press 'R' to Restart",
+    canvas.width / 2,
+    canvas.height / 2 + 50
+  );
+  ctx.fillText(
+    "Press 'M' for Main Menu",
+    canvas.width / 2,
+    canvas.height / 2 + 80
+  );
 }
 
 // Function to render the minimap
@@ -719,12 +762,14 @@ function renderMinimap(playerScreenX, playerScreenY) {
     minimapY = canvas.height - minimapHeight - 10;
   }
 
-    // Check if player overlaps minimap area
+  // Check if player overlaps minimap area
   // If player's position is within the minimap rectangle, reduce minimap opacity
-  let minimapOpacity = 0.7; 
+  let minimapOpacity = 0.7;
   if (
-    playerScreenX >= minimapX && playerScreenX <= minimapX + minimapWidth &&
-    playerScreenY >= minimapY && playerScreenY <= minimapY + minimapHeight
+    playerScreenX >= minimapX &&
+    playerScreenX <= minimapX + minimapWidth &&
+    playerScreenY >= minimapY &&
+    playerScreenY <= minimapY + minimapHeight
   ) {
     // Player is behind the minimap, so make it more transparent
     minimapOpacity = 0.05;
