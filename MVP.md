@@ -8,6 +8,8 @@
     - m to open minimap
     - three lives (lose a life for every mine revealed)
 
+    - y = developer cheat feature. it reveals a 10 block radius around the player making it easier to playtest. should remove when game is finished.
+
 ## board mechanics
 
     - mines generate
@@ -21,22 +23,25 @@
     - shows time elapsed
     - shows mines remaining (total mines - flags placed)
     - minimap preview in bottom right corner
+    - menu gamestate
+    - win gamestate with restart or menu buttons that happens when all non-mine tiles are revealed
+    - UI elements no longer impede vision: opacity of mini map changes when player collides with it allowing to see under it in the bottom right corner
+    - can restart after the game is over
 
 # NEXT STEPS
 
 ## fixes
 
-    - (MOST PRESSING) if all non-mine tiles are revealed, the game should tell the player that they've won. nothing happens so far
-    - UI elements (mine count, timer, minimap) should not cover the board. move them just outside the canvas.
     - not that important but I lowk don't know why I made "water" tiles mean tiles with mines on them. it just turned out that way and I never bothered to change it. but don't be mistaken. they are mines. you might want to change that for your convenience
     - i can't figure out how to separate my script.js into multiple files lmao. sorry
 
 ## additional features
 
-    - (VERY PRESSING) allow resetting during the game, and let the player restart after the game is over
+    - (VERY PRESSING) allow resetting during the game. i would make a pause menu where you can do this.
     - keep track of personal best scores/make a global leaderboard
     - togglable difficulty
         - difficulty ~ mine density, and perhaps more difficult boards are in the shape of real-life countries that are more populated with landmines
+        - make selectable sizes because rn it takes so long to finish the current map
     - ensure solvability (seems difficult & I'm not really sure how to do this)
 
 ## aesthetic
