@@ -226,19 +226,21 @@ function revealTiles(x, y) {
       return;
     }
   } else {
+    const clearAudio = document.getElementById("clear");
+    clearAudio.play();
     // It's a land tile, increment revealed safe count
     revealedSafeCount++;
   }
 
   // If it's a land tile with no water neighbors, recursively reveal neighbors
   if (map[y][x] === "land" && countWaterTilesAround(x, y) === 0) {
-    const clearAudio = document.getElementById("clear");
-    clearAudio.play();
     // Reveal all 8 surrounding tiles
     for (let dy = -1; dy <= 1; dy++) {
       for (let dx = -1; dx <= 1; dx++) {
         if (dx === 0 && dy === 0) continue;
-        revealTiles(x + dx, y + dy);
+        setTimeout(() => {
+          revealTiles(x + dx, y + dy);
+        }, 30);
       }
     }
   }
