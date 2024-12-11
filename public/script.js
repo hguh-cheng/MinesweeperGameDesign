@@ -212,8 +212,7 @@ function revealTiles(x, y) {
   // Check tile type
   if (map[y][x] === "water") {
     lives--;
-    const loseLifeAudio = document.getElementById("loseLife");
-    loseLifeAudio.play();
+    playSound("assets/sounds/loselife.mp3");
 
     // Automatically place a flag on the water tile
     if (!hasFlag(x, y)) {
@@ -226,8 +225,7 @@ function revealTiles(x, y) {
       return;
     }
   } else {
-    const clearAudio = document.getElementById("clear");
-    clearAudio.play();
+    playSound("assets/sounds/clear.mp3");
     // It's a land tile, increment revealed safe count
     revealedSafeCount++;
   }
@@ -247,6 +245,11 @@ function revealTiles(x, y) {
 
   // After revealing tiles, check if we've won
   checkWinCondition();
+}
+
+function playSound(filePath) {
+  const sound = new Audio(filePath);
+  sound.play();
 }
 
 // Function to reveal all surrounding tiles via chording
@@ -576,7 +579,7 @@ function renderGame() {
   });
 
   // Draw player
-  ctx.fillStyle = "#ff5733";
+  ctx.fillStyle = "blue";
   const playerScreenX = player.x - camera.x;
   const playerScreenY = player.y - camera.y;
   ctx.fillRect(playerScreenX, playerScreenY, TILE_SIZE, TILE_SIZE);
@@ -797,7 +800,7 @@ function renderMinimap(playerScreenX, playerScreenY) {
         tileColor = map[y][x] === "water" ? "red" : "brown";
       } else if (hasFlag(x, y)) {
         // Flagged tiles
-        tileColor = "yellow";
+        tileColor = "red";
       } else {
         // Unrevealed tiles
         tileColor = "green";
