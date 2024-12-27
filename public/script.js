@@ -672,11 +672,7 @@ function renderMainMenu() {
   ctx.fillStyle = "white";
   ctx.font = "48px Arial";
   ctx.textAlign = "center";
-  ctx.fillText(
-    "Welcome to the Minefield Game",
-    canvas.width / 2,
-    canvas.height / 2 - 50
-  );
+  ctx.fillText("SWINEMEEPER", canvas.width / 2, canvas.height / 2 - 50);
 
   // Display instructions
   ctx.font = "24px Arial";
